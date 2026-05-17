@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PROBABILITY SIMULATOR</title>
+    <style>
+        body {
+            background-color: #000000;
+            color: #FFFFF0; /* Ivory */
+            font-family: 'Courier New', Courier, monospace;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            min-height: 95vh;
+            box-sizing: border-box;
+            text-transform: uppercase;
+            overflow-x: hidden;
+        }
+
+        header, footer {
+            text-align: center;
+            width: 100%;
+            padding: 10px;
+            z-index: 10;
+        }
+
+        #wallet-display {
+            font-size: 1.8rem;
+            color: #FFFFF0;
+            border: 2px dashed #FFFFF0;
+            padding: 10px 25px;
+            display: inline-block;
+            margin-bottom: 15px;
+            letter-spacing: 2px;
+        }
+
+        label, input, select, button {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 1.1rem;
+            background-color: #111;
+            color: #FFFFF0;
+            border: 1px solid #FFFFF0;
+            padding: 8px;
+            margin: 5px;
+            text-transform: uppercase;
+        }
+
+        input:focus, select:focus, button:focus {
+            outline: none;
+            box-shadow: 0 0 8px #FFFFF0;
+        }
+
+        button {
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        button:hover {
+            background-color: #FFFFF0;
+            color: #000;
+        }
+
+        #grid-container {
+            position: relative;
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            margin: 15px 0;
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        svg#visual-grid {
+            border: 1px solid #333;
+            box-shadow: 0 0 20px rgba(255, 255, 240, 0.05);
+            z-index: 2;
+            max-width: 95vw;
+            transition: width 0.5s ease, height 0.5s ease;
+        }
+
+        .size-standard { width: 400px; height: 400px; }
+        .size-large    { width: 550px; height: 550px; }
+        .size-double   { width: 800px; height: 800px; }
+        .size-massive  { width: 1200px; height: 750px; }
+
+        svg#fx-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        #result-display {
+            font-size: 1.4rem;
+            font-weight: bold;
+            margin-top: 10px;
+            min-height: 2.5rem;
+            letter-spacing: 2px;
+        }
+
+        @keyframes driftSparkle {
+            0% { 
+                transform: translate(var(--startX), var(--startY)) scale(0.2) rotate(0deg); 
+                opacity: 0; 
+            }
+            15% { opacity: 1; }
+            85% { opacity: 1; }
+            100% { 
+                transform: translate(calc(var(--startX) + var(--driftX)), calc(var(--startY) - 300px)) scale(1.4) rotate(var(--rot)); 
+                opacity: 0; 
+            }
+        }
+
+        @keyframes pulseWin {
+            0%, 100% { fill: #00FF00; filter: drop-shadow(0 0 2px #00FF00); }
+            50% { fill: #FFFFF0; filter: drop-shadow(0 0 8px #FFFFF0); }
+        }
+
+        .sparkle-element {
+            animation: driftSparkle 4s ease-out forwards;
+        }
+
+        .winning-tile {
+            animation: pulseWin 0.4s ease-in-out infinite;
+        }
+
+        #game-over-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: #000000;
+            z-index: 100;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 2s ease-in-out;
+        }
+
+        #game-over-screen.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        #game-over-text {
+            color: #FFFFF0;
+            font-size: 2rem;
+            letter-spacing: 4px;
+            text-align: center;
+            padding: 20px;
+            border: 2px solid #FFFFF0;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-over-screen">
+        <div id="game-over-text">IT'S ALL OVER BUSTER. YOU'RE DONE FOR.</div>
+    </div>
+
+    <header>
+        <div id="wallet-display">WALLET: $9999</div>
+        <div>
+            <label for="odds-select">ODDS:</label>
+            <select id="odds-select">
+                <option value="100">1 IN 100</option>
+                <option value="1000">1 IN 1000</option>
+                <option value="10000">1 IN 10K</option>
+                <option value="100000">1 IN 100K</option>
+                <option value="1000000">1 IN 1M</option>
+                <option value="1000000000">1 IN 1B</option>
+            </select>
+        </div>
+    </header>
+
+    <main id="grid-container">
+        <svg id="visual-grid" viewBox="0 0 1000 1000" class="size-standard"></svg>
+        <svg id="fx-layer" viewBox="0 0 1000 1000" preserveAspectRatio="none"></svg>
+    </main>
+
+    <footer>
+        <div id="result-display">SET ODDS AND PLACEMENT COST ($1 PER ENTRY)</div>
+        <div style="margin-top: 10px;">
+            <label for="entries-input">BET AMOUNT (1-999 entries):</label>
+            <input type="number" id="entries-input" min="1" max="999" value="1">
+            <button id="roll-btn">BET</button>
+        </div>
+    </footer>
+
+    <script>
+        const oddsSelect = document.getElementById('odds-select');
+        const entriesInput = document.getElementById('entries-input');
+        const rollBtn = document.getElementById('roll-btn');
+        const svg = document.getElementById('visual-grid');
+        const fxLayer = document.getElementById('fx-layer');
+        const resultDisplay = document.getElementById('result-display');
+        const walletDisplay = document.getElementById('wallet-display');
+        const gameOverScreen = document.getElementById('game-over-screen');
+
+        let currentWallet = 9999;
+        let totalRenderedGridCells = 10000; // Locked at an optimized 100x100 for high-tier scaling performance
+
+        generateGrid();
+
+        oddsSelect.addEventListener('change', generateGrid);
+        rollBtn.addEventListener('click', runSimulation);
+
+        entriesInput.addEventListener('input', () => {
+            let val = parseInt(entriesInput.value);
+            if (val > 999) entriesInput.value = 999;
+        });
+
+        function updateWalletUI() {
+            walletDisplay.textContent = `WALLET: $${currentWallet}`;
+            if (currentWallet <= 0) {
+                currentWallet = 0;
+                walletDisplay.textContent = `WALLET: $0`;
+                triggerGameOver();
+            }
+        }
+
+        // Returns how many bets are bundled into 1 visual dot for the selected tier
+        function getBetsPerDotRatio(totalOdds) {
+            if (totalOdds >= 1000000000) return 100000; // 1B tier: 100,000 bets = 1 dot
+            if (totalOdds >= 1000000) return 100;       // 1M tier: 100 bets = 1 dot
+            if (totalOdds >= 100000) return 10;         // 100K tier: 10 bets = 1 dot
+            return 1;                                   // 10K and lower: 1 bet = 1 dot
+        }
+
+        function triggerGameOver() {
+            gameOverScreen.classList.add('active');
+        }
+
+        function generateGrid() {
+            svg.innerHTML = '';
+            fxLayer.innerHTML = '';
+            resultDisplay.textContent = "SET ODDS AND PLACEMENT COST ($1 PER ENTRY)";
+            resultDisplay.style.color = '#FFFFF0';
+            svg.className.baseVal = '';
+
+            const totalOddsPool = parseInt(oddsSelect.value);
+            
+            let cols = 100;
+            let rows = 100;
+            let displayCapActive = false;
+            
+            if (totalOddsPool >= 1000000000) { 
+                svg.classList.add('size-massive');
+                displayCapActive = true;
+            } else if (totalOddsPool >= 1000000) { 
+                svg.classList.add('size-double');
+                displayCapActive = true;
+            } else if (totalOddsPool >= 100000) { 
+                svg.classList.add('size-large');
+                displayCapActive = true;
+            } else if (totalOddsPool > 10000) { 
+                svg.classList.add('size-standard');
+                displayCapActive = true;
+            } else {
+                svg.classList.add('size-standard');
+                cols = Math.ceil(Math.sqrt(totalOddsPool));
+                rows = Math.ceil(totalOddsPool / cols);
+                totalRenderedGridCells = totalOddsPool;
+                displayCapActive = false;
+            }
+
+            if (displayCapActive) {
+                totalRenderedGridCells = 10000; // 100x100 grid setup
+            }
+
+            const svgSize = 1000; 
+            const cellWidth = svgSize / cols;
+            const cellHeight = svgSize / rows;
+
+            const elementsBuffer = new Array(totalRenderedGridCells);
+            let marginFactor = displayCapActive ? 0.01 : 0.05;
+            const w = cellWidth - (cellWidth * marginFactor);
+            const h = cellHeight - (cellHeight * marginFactor);
+
+            for (let i = 0; i < totalRenderedGridCells; i++) {
+                const r = Math.floor(i / cols);
+                const c = i % cols;
+                const x = c * cellWidth;
+                const y = r * cellHeight;
+                elementsBuffer[i] = `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#111" id="cell-${i}"></rect>`;
+            }
+            
+            let finalInnerHTML = elementsBuffer.join('');
+
+            if (displayCapActive) {
+                const ratio = getBetsPerDotRatio(totalOddsPool);
+                finalInnerHTML += `<text x="500" y="500" fill="rgba(255,255,240,0.15)" font-family="Courier New" font-size="26" text-anchor="middle">COMPRESSION SCALE: 1 RED DOT = ${formatNumber(ratio)} BETS</text>`;
+            }
+
+            svg.innerHTML = finalInnerHTML;
+        }
+
+        function runSimulation() {
+            fxLayer.innerHTML = ''; 
+            const totalOddsPool = parseInt(oddsSelect.value);
+            let entries = parseInt(entriesInput.value);
+
+            if (isNaN(entries) || entries < 1) entries = 1;
+            if (entries > 999) entries = 999;
+            entriesInput.value = entries;
+
+            if (entries > currentWallet) {
+                resultDisplay.innerHTML = `TRANSACTION DENIED<br><span style="font-size:1rem">INSUFFICIENT WALLET FUNDS FOR ${entries} ENTRIES</span>`;
+                resultDisplay.style.color = "#FF0000";
+                return;
+            }
+
+            currentWallet -= entries;
+            updateWalletUI();
+
+            if (currentWallet <= 0) return; 
+
+            // Wipe colors quickly
+            const rects = svg.querySelectorAll('rect');
+            rects.forEach(rect => {
+                rect.setAttribute("fill", "#111");
+                rect.classList.remove('winning-tile');
+            });
+
+            // Handle true logic behind the scenes
+            const userBetIndices = new Set();
+            const actualBetCount = Math.min(entries, totalOddsPool);
+            while (userBetIndices.size < actualBetCount) {
+                userBetIndices.add(Math.floor(Math.random() * totalOddsPool));
+            }
+
+            const winningUnitIndex = Math.floor(Math.random() * totalOddsPool);
+            const isWinner = userBetIndices.has(winningUnitIndex);
+
+            // Calculate precisely how many visual dots your entries earn
+            const betsPerDot = getBetsPerDotRatio(totalOddsPool);
+            
+            // Math.floor logic ensures that you must hit the threshold tier rule (e.g., 10 or 100) to display a dot
+            const visibleRedDotsCount = Math.floor(entries / betsPerDot);
+
+            const chosenVisualIndices = new Set();
+            if (totalOddsPool > 10000) {
+                // High Tiers: Populate exactly the calculated amount of grouped dots randomly in the 100x100 matrix
+                while (chosenVisualIndices.size < visibleRedDotsCount) {
+                    chosenVisualIndices.add(Math.floor(Math.random() * totalRenderedGridCells));
+                }
+            } else {
+                // Low Tiers: Direct 1-to-1 visual rendering mapping
+                userBetIndices.forEach(idx => chosenVisualIndices.add(idx));
+            }
+
+            // Render user grouped selection
+            chosenVisualIndices.forEach(vIdx => {
+                const rect = document.getElementById(`cell-${vIdx}`);
+                if (rect) rect.setAttribute("fill", "#FF0000");
+            });
+
+            // Map where the true target index lands inside the visual grid
+            let visualWinningIndex = winningUnitIndex;
+            if (totalOddsPool > 10000) {
+                visualWinningIndex = Math.floor((winningUnitIndex / totalOddsPool) * totalRenderedGridCells);
+            }
+            visualWinningIndex = Math.min(visualWinningIndex, totalRenderedGridCells - 1);
+
+            // Process targeting result
+            const targetRect = document.getElementById(`cell-${visualWinningIndex}`);
+            if (targetRect) {
+                if (isWinner) {
+                    targetRect.classList.add('winning-tile');
+                    triggerSlowSideSparkles();
+                    currentWallet += totalOddsPool;
+                    updateWalletUI();
+                } else {
+                    targetRect.setAttribute("fill", "#89CFF0"); // Cyan indicator shows precisely where it missed
+                }
+            }
+
+            const percentage = ((entries / totalOddsPool) * 100).toFixed(totalOddsPool > 1000 ? 5 : 2);
+            if (isWinner) {
+                resultDisplay.innerHTML = `JACKPOT! +$${totalOddsPool} ADDED TO BALANCE<br><span style="font-size:1rem">HIT TARGET UNIT #${winningUnitIndex} (${percentage}%)</span>`;
+                resultDisplay.style.color = "#00FF00";
+            } else {
+                resultDisplay.innerHTML = `LOST! | CHANCE OF WINNING: ${percentage}% WITH ${entries} ${entries === 1 ? 'BET' : 'BETS'}<br><span style="font-size:1rem">TARGET WAS UNIT #${winningUnitIndex}</span>`;
+                resultDisplay.style.color = "#FF0000";
+            }
+        }
+
+        function triggerSlowSideSparkles() {
+            const fragment = document.createDocumentFragment();
+            const colors = ['#00FF00', '#FFFFF0', '#89CFF0', '#FFD700', '#FF69B4'];
+            
+            for (let i = 0; i < 80; i++) {
+                const element = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                const size = Math.random() * 12 + 6;
+                element.setAttribute("d", `M 0 ${-size} Q 0 0 ${size} 0 Q 0 0 0 ${size} Q 0 0 ${-size} 0 Q 0 0 0 ${-size} Z`);
+                
+                const isLeft = Math.random() > 0.5;
+                const startX = isLeft ? (Math.random() * 140) : (860 + Math.random() * 140);
+                const startY = 400 + Math.random() * 400; 
+
+                const driftX = isLeft ? (Math.random() * 180) : -(Math.random() * 180);
+                const rotation = Math.random() * 360 + 180;
+
+                element.setAttribute("fill", colors[Math.floor(Math.random() * colors.length)]);
+                element.setAttribute("class", "sparkle-element");
+                
+                element.style.setProperty('--startX', `${startX}px`);
+                element.style.setProperty('--startY', `${startY}px`);
+                element.style.setProperty('--driftX', `${driftX}px`);
+                element.style.setProperty('--rot', `${rotation}deg`);
+                
+                element.style.animationDuration = `${Math.random() * 2 + 2.5}s`;
+                element.style.animationDelay = `${Math.random() * 0.5}s`;
+
+                fragment.appendChild(element);
+            }
+            fxLayer.appendChild(fragment);
+        }
+
+        function formatNumber(num) {
+            if (num >= 1e6) return (num / 1e6) + 'M';
+            if (num >= 1e3) return (num / 1e3) + 'K';
+            return num;
+        }
+    </script>
+</body>
+</html>
